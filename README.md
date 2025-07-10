@@ -5,11 +5,12 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/nhalm/shortuuid)](https://goreportcard.com/report/github.com/nhalm/shortuuid)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Go implementation of the Ruby [shortuuid](https://github.com/sudhirj/shortuuid.rb) library that produces **identical** short IDs for the same UUIDs.
+A Go implementation that provides base62 encoding for arbitrary strings and maintains **100% Ruby compatibility** for UUID encoding via the [shortuuid](https://github.com/sudhirj/shortuuid.rb) library.
 
 ## Features
 
-- **100% Ruby Compatible**: Produces identical short IDs for the same UUIDs
+- **Flexible String Encoding**: Encode any string to base62 short IDs
+- **100% Ruby Compatible**: UUID encoding produces identical short IDs to Ruby shortuuid
 - **Simple API**: Just 4 public functions for all use cases
 - **UUID Type Support**: Works with both strings and `uuid.UUID` types
 - **UUID Version Preservation**: Maintains UUID version (v4, v7, etc.) through encode/decode
@@ -35,20 +36,20 @@ import (
 )
 
 func main() {
-    // Shorten a UUID string (Ruby compatible)
-    uuid := "4890586e-32a5-4f9c-a000-2a2bb68eb1ce"
-    short, err := shortuuid.Shorten(uuid)
+    // Shorten any string
+    text := "hello world"
+    short, err := shortuuid.Shorten(text)
     if err != nil {
         panic(err)
     }
-    fmt.Println(short) // "2CvPdpytrcURpSLoPxYb30"
+    fmt.Println(short) // "AAwf93rvy4aWQVw"
     
-    // Expand back to UUID
+    // Expand back to original string
     expanded, err := shortuuid.Expand(short)
     if err != nil {
         panic(err)
     }
-    fmt.Println(expanded) // "4890586e-32a5-4f9c-a000-2a2bb68eb1ce"
+    fmt.Println(expanded) // "hello world"
 }
 ```
 
@@ -81,7 +82,7 @@ ShortUUID uses typed errors for better error handling:
 
 ### Error Types
 
-- `EncodeError`: Errors during UUID shortening (invalid UUID format, etc.)
+- `EncodeError`: Errors during string shortening (empty string, etc.)
 - `DecodeError`: Errors during short ID expansion (invalid characters, etc.)
 
 ### Using Errors
@@ -92,12 +93,12 @@ import (
     "github.com/nhalm/shortuuid"
 )
 
-// Handle encoding errors
-_, err := shortuuid.Shorten("invalid-uuid")
+// Handle encoding errors (only for empty strings)
+_, err := shortuuid.Shorten("")
 if err != nil {
     var encodeErr *shortuuid.EncodeError
     if errors.As(err, &encodeErr) {
-        fmt.Printf("UUID: %s\n", encodeErr.UUID)
+        fmt.Printf("Input: %s\n", encodeErr.Input)
         fmt.Printf("Reason: %s\n", encodeErr.Reason)
         fmt.Printf("Error: %s\n", encodeErr.Error())
     }
@@ -120,11 +121,11 @@ if err != nil {
 ### Functions
 
 ```go
-// String-based functions (Ruby compatible)
-func Shorten(uuidStr string) (string, error)
+// String-based functions (works with any string)
+func Shorten(input string) (string, error)
 func Expand(shortID string) (string, error)
 
-// UUID type-based functions
+// UUID type-based functions (Ruby compatible)
 func ShortenUUID(uuid uuid.UUID) (string, error)
 func ExpandUUID(shortID string) (uuid.UUID, error)
 ```
@@ -133,7 +134,7 @@ func ExpandUUID(shortID string) (uuid.UUID, error)
 
 ```go
 type EncodeError struct {
-    UUID   string // The UUID that caused the error
+    UUID   string // The input string that caused the error
     Reason string // Description of what went wrong
 }
 
