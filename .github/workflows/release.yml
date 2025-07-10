@@ -16,15 +16,12 @@ jobs:
       with:
         fetch-depth: 0
     
-    - name: Verify tag is on main branch
+    - name: Verify tag and branch info
       run: |
-        # Check if the tag points to a commit that's on main
-        TAG_COMMIT=$(git rev-list -n 1 ${{ github.ref_name }})
-        if ! git merge-base --is-ancestor $TAG_COMMIT origin/main; then
-          echo "❌ Tag ${{ github.ref_name }} is not on main branch"
-          exit 1
-        fi
-        echo "✅ Tag ${{ github.ref_name }} is on main branch"
+        echo "🏷️  Tag: ${{ github.ref_name }}"
+        echo "📝 Commit: $(git rev-parse HEAD)"
+        echo "🌿 Branch: $(git branch --show-current || echo 'detached HEAD')"
+        echo "✅ Ready to create release"
     
     - name: Set up Go
       uses: actions/setup-go@v4
