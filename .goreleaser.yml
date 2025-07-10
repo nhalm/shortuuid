@@ -1,0 +1,73 @@
+project_name: shortuuid
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+# Since this is a library, we don't need build artifacts
+builds:
+  - skip: true
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - '^build:'
+  groups:
+    - title: Features
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: 'Bug fixes'
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: 'Performance improvements'
+      regexp: "^.*perf[(\\w)]*:+.*$"
+      order: 2
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: nhalm
+    name: shortuuid
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## ShortUUID Go {{ .Tag }}
+    
+    {{ .Date }}
+    
+    Welcome to this new release of ShortUUID Go!
+  footer: |
+    ## Thanks!
+    
+    Those were the changes on {{ .Tag }}!
+  
+  extra_files:
+    - glob: README.md
+    - glob: LICENSE 
