@@ -35,8 +35,14 @@ func TestCompatibility(t *testing.T) {
 
 	for originalUUID, expectedShort := range testCases {
 		t.Run(originalUUID, func(t *testing.T) {
-			// Test shortening
-			actualShort, err := Shorten(originalUUID)
+			// Parse UUID string into uuid.UUID for ShortenUUID API
+			parsedUUID, err := uuid.Parse(originalUUID)
+			if err != nil {
+				t.Fatalf("Error parsing UUID %s: %v", originalUUID, err)
+			}
+
+			// Test shortening with ShortenUUID (uuid.UUID API)
+			actualShort, err := ShortenUUID(parsedUUID)
 			if err != nil {
 				t.Fatalf("Error shortening UUID %s: %v", originalUUID, err)
 			}
@@ -45,14 +51,14 @@ func TestCompatibility(t *testing.T) {
 				t.Errorf("Expected short ID %s, got %s", expectedShort, actualShort)
 			}
 
-			// Test expanding
-			expandedUUID, err := Expand(actualShort)
+			// Test expanding back to UUID
+			expandedUUID, err := ExpandUUID(actualShort)
 			if err != nil {
 				t.Fatalf("Error expanding short ID %s: %v", actualShort, err)
 			}
 
-			if expandedUUID != originalUUID {
-				t.Errorf("Expected expanded UUID %s, got %s", originalUUID, expandedUUID)
+			if expandedUUID != parsedUUID {
+				t.Errorf("Expected UUID %s, got %s", parsedUUID, expandedUUID)
 			}
 
 			t.Logf("✓ UUID: %s <-> Short: %s", originalUUID, actualShort)
@@ -60,25 +66,78 @@ func TestCompatibility(t *testing.T) {
 	}
 }
 
+func TestShortenUUIDCompatibility(t *testing.T) {
+	// Test that ShortenUUID produces the same results as Shorten
+	// This demonstrates the proper usage: if you have a UUID object, use ShortenUUID
+	testCases := map[string]string{
+		"53a8d1b9-4eca-4888-9b59-8fa91497857b": "2XrVqpuNYMfp5OSuawGnL1",
+		"8658bb57-992d-4a4d-9292-a5b118d28c8b": "45VWNy74cXYBydTM0JO3rv",
+		"d26abc73-a6bf-49c6-984d-e08c941fad4a": "6P3AMn3h7r9JJSeHECCjJS",
+	}
+
+	for uuidStr, expectedShort := range testCases {
+		t.Run(uuidStr, func(t *testing.T) {
+			// Parse UUID string into uuid.UUID
+			parsedUUID, err := uuid.Parse(uuidStr)
+			if err != nil {
+				t.Fatalf("Error parsing UUID %s: %v", uuidStr, err)
+			}
+
+			// Test shortening with ShortenUUID (uuid.UUID API)
+			actualShort, err := ShortenUUID(parsedUUID)
+			if err != nil {
+				t.Fatalf("Error shortening UUID %s: %v", uuidStr, err)
+			}
+
+			if actualShort != expectedShort {
+				t.Errorf("Expected short ID %s, got %s", expectedShort, actualShort)
+			}
+
+			// Test expanding back to UUID
+			expandedUUID, err := ExpandUUID(actualShort)
+			if err != nil {
+				t.Fatalf("Error expanding short ID %s: %v", actualShort, err)
+			}
+
+			if expandedUUID != parsedUUID {
+				t.Errorf("Expected UUID %s, got %s", parsedUUID, expandedUUID)
+			}
+
+			t.Logf("✓ uuid.UUID: %s -> Short: %s -> uuid.UUID: %s", parsedUUID, actualShort, expandedUUID)
+		})
+	}
+}
+
 func TestShorten(t *testing.T) {
-	// Test basic shortening and expanding
-	uuid := "4890586e-32a5-4f9c-a000-2a2bb68eb1ce"
-
-	short, err := Shorten(uuid)
-	if err != nil {
-		t.Fatalf("Error shortening UUID: %v", err)
+	// Test basic shortening and expanding with arbitrary strings
+	testStrings := []string{
+		"hello world",
+		"test string 123",
+		"special chars: !@#$%^&*()",
+		"unicode: 你好世界",
+		"email@example.com",
+		"https://example.com/path?query=value",
 	}
 
-	expanded, err := Expand(short)
-	if err != nil {
-		t.Fatalf("Error expanding short ID: %v", err)
-	}
+	for _, input := range testStrings {
+		t.Run(input, func(t *testing.T) {
+			short, err := Shorten(input)
+			if err != nil {
+				t.Fatalf("Error shortening string '%s': %v", input, err)
+			}
 
-	if expanded != uuid {
-		t.Errorf("Expected %s, got %s", uuid, expanded)
-	}
+			expanded, err := Expand(short)
+			if err != nil {
+				t.Fatalf("Error expanding short ID '%s': %v", short, err)
+			}
 
-	t.Logf("UUID: %s -> Short: %s -> UUID: %s", uuid, short, expanded)
+			if expanded != input {
+				t.Errorf("Expected '%s', got '%s'", input, expanded)
+			}
+
+			t.Logf("'%s' -> '%s' -> '%s'", input, short, expanded)
+		})
+	}
 }
 
 func TestShortenUUID(t *testing.T) {
@@ -208,10 +267,7 @@ func TestErrorCases(t *testing.T) {
 		input     string
 		isShortID bool
 	}{
-		{"invalid_not-a-uuid", "not-a-uuid", false},
-		{"invalid_12345", "12345", false},
-		{"invalid_12345678-1234-5678-9abc-123456789abcdef", "12345678-1234-5678-9abc-123456789abcdef", false},
-		{"invalid_gggggggg-gggg-gggg-gggg-gggggggggggg", "gggggggg-gggg-gggg-gggg-gggggggggggg", false},
+		{"empty_string", "", false},
 		{"invalid_short_@#$%", "@#$%", true},
 	}
 
@@ -224,10 +280,10 @@ func TestErrorCases(t *testing.T) {
 					t.Errorf("Expected error for invalid short ID %s", tc.input)
 				}
 			} else {
-				// Test invalid UUID
+				// Test invalid input for Shorten
 				_, err := Shorten(tc.input)
 				if err == nil {
-					t.Errorf("Expected error for invalid UUID %s", tc.input)
+					t.Errorf("Expected error for invalid input %s", tc.input)
 				}
 			}
 		})
@@ -243,25 +299,11 @@ func TestError(t *testing.T) {
 		expectedReason string
 	}{
 		{
-			name:           "too short UUID",
-			input:          "12345",
+			name:           "empty string",
+			input:          "",
 			isShortID:      false,
-			expectedInput:  "12345",
-			expectedReason: "invalid UUID format: expected 32 hex characters after removing hyphens, got 5",
-		},
-		{
-			name:           "too long UUID",
-			input:          "12345678-1234-5678-9abc-123456789abcdef",
-			isShortID:      false,
-			expectedInput:  "12345678-1234-5678-9abc-123456789abcdef",
-			expectedReason: "invalid UUID format: expected 32 hex characters after removing hyphens, got 35",
-		},
-		{
-			name:           "invalid hex UUID",
-			input:          "gggggggg-gggg-gggg-gggg-gggggggggggg",
-			isShortID:      false,
-			expectedInput:  "gggggggg-gggg-gggg-gggg-gggggggggggg",
-			expectedReason: "invalid UUID format: contains non-hex characters (valid characters: 0-9, a-f, A-F, hyphens)",
+			expectedInput:  "",
+			expectedReason: "input string cannot be empty",
 		},
 		{
 			name:           "invalid character in short ID",
@@ -311,15 +353,15 @@ func TestError(t *testing.T) {
 					t.Fatalf("Expected EncodeError, got %T: %v", err, err)
 				}
 
-				if encodeErr.UUID != tc.expectedInput {
-					t.Errorf("Expected UUID %q in error, got %q", tc.expectedInput, encodeErr.UUID)
+				if encodeErr.Input != tc.expectedInput {
+					t.Errorf("Expected input %q in error, got %q", tc.expectedInput, encodeErr.Input)
 				}
 
 				if encodeErr.Reason != tc.expectedReason {
 					t.Errorf("Expected reason %q in error, got %q", tc.expectedReason, encodeErr.Reason)
 				}
 
-				expectedMsg := fmt.Sprintf("encode error for UUID '%s': %s", tc.expectedInput, tc.expectedReason)
+				expectedMsg := fmt.Sprintf("encode error for input '%s': %s", tc.expectedInput, tc.expectedReason)
 				if encodeErr.Error() != expectedMsg {
 					t.Errorf("Expected error message %q, got %q", expectedMsg, encodeErr.Error())
 				}
@@ -330,7 +372,7 @@ func TestError(t *testing.T) {
 
 func TestErrorWrapping(t *testing.T) {
 	// Test that we can use errors.As with our error types
-	_, err := Shorten("invalid")
+	_, err := Shorten("")
 	if err == nil {
 		t.Fatal("Expected error")
 	}
@@ -355,11 +397,11 @@ func TestErrorWrapping(t *testing.T) {
 
 // Benchmark tests
 func BenchmarkShorten(b *testing.B) {
-	uuid := "4890586e-32a5-4f9c-a000-2a2bb68eb1ce"
+	testString := "hello world this is a test string"
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, err := Shorten(uuid)
+		_, err := Shorten(testString)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -367,7 +409,13 @@ func BenchmarkShorten(b *testing.B) {
 }
 
 func BenchmarkExpand(b *testing.B) {
-	shortID := "2CvPdpytrcURpSLoPxYb30"
+	// First get a short ID from a test string
+	testString := "hello world this is a test string"
+	shortID, err := Shorten(testString)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
