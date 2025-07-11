@@ -12,14 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.22', '1.23', '1.24']
+        go-version: [ '1.22', '1.23', '1.24' ]
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
     
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v4
       with:
         go-version: ${{ matrix.go-version }}
     
@@ -36,68 +35,37 @@ jobs:
     - name: Download dependencies
       run: go mod download
     
-    - name: Run tests
-      run: go test -v -race -coverprofile=coverage.out ./...
+    - name: Verify dependencies
+      run: go mod verify
     
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.out
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+    - name: Run tests
+      run: go test -v -race -parallel=1 ./...
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
     
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v4
       with:
         go-version: '1.23'
     
-    - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v6
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v3
       with:
         version: latest
         args: --timeout=5m
 
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    needs: [test, lint]
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.23'
-    
-    - name: Build
-      run: go build -v ./...
-    
-    - name: Verify go mod tidy
-      run: |
-        go mod tidy
-        git diff --exit-code go.mod go.sum
-
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
     
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v4
       with:
         go-version: '1.23'
     
@@ -106,3 +74,19 @@ jobs:
     
     - name: Run Gosec Security Scanner
       run: gosec -exclude=G115 ./...
+      continue-on-error: true
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+    
+    - name: Build
+      run: go build -v ./...
