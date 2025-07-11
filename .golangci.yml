@@ -1,19 +1,21 @@
+version: "2"
+
 run:
   timeout: 5m
 
 linters:
   enable:
     - errcheck
-    - gosimple
-    - govet
-    - ineffassign
     - staticcheck
-    - typecheck
+    - ineffassign
     - unused
-    - gofmt
-    - goimports
     - misspell
     - unconvert
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
 
 issues:
   max-issues-per-linter: 0
